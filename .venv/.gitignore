@@ -1,0 +1,28 @@
+# Created by venv; see https://docs.python.org/3/library/venv.html
+# Environment
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual Environment
+.venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+
+# Logs and Temporary Files
+*.log
+*.tmp
+
+# OS-Specific Files
+.DS_Store
+Thumbs.db
+
+# Build Files
+dist/
+build/
