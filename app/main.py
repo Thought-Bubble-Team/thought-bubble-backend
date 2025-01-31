@@ -1,14 +1,26 @@
 from fastapi import FastAPI
 from decouple import config
 from supabase import create_client, Client
+from app.middlewares.exception_handler import ExceptionHandlerMiddleware
+from app.middlewares.logging import setup_logging
+from app.schemas.schemas import EntryRequest, SentimentResponse
+from app.services.sentiment_analysis import analyze_sentiment
 
 url = config('SUPABASE_URL')
 key = config('SUPABASE_KEY')
 admin_key = config('SUPABASE_SERVICE_KEY')
 
+# Setup logging
+setup_logging()
+
 app = FastAPI()
+# Add exception handler middleware
+app.add_middleware(ExceptionHandlerMiddleware)
+
+#Intialize Supabase clients
 supabase_anon: Client = create_client(url, key)
 supabase_admin: Client = create_client(url, admin_key)
+
 
 @app.get("/admin/journal-entries")
 def get_journal_entries():
@@ -19,3 +31,44 @@ def get_journal_entries():
 def get_journal_entries():
     journal_entries = supabase_anon.table('journal_entries').select("*").execute()
     return journal_entries
+
+@app.post("/admin/analyze-sentiment/", response_model=SentimentResponse)
+def analyze_sentiment_endpoint(entry: EntryRequest):
+    """
+    API endpoint to analyze sentiment of a given journal entry
+    and save the result to the database.
+    """
+    entry_id = entry.entry_id
+    if not entry_id:
+        raise HTTPException(status_code=400, detail="entry_id is missing")
+    
+    # Fetch the journal entry from the database
+    journal_entry = supabase_admin.table("journal_entries").select("*").eq("entry_id", entry_id).execute()
+    if not journal_entry.data or len(journal_entry.data) == 0:
+        raise HTTPException(status_code=404, detail="Journal entry not found")
+    
+    # Get the content from the journal entry
+    content = journal_entry.data[0]["content"]
+
+    # Perform sentiment analysis
+    result = analyze_sentiment(content)
+
+    # Save the result into the database
+    response = supabase_admin.table("sentiment_analysis").insert({
+        "entry_id": entry_id,
+        "sentiment": result["sentiment"],
+        "confidence_score": result["confidence_score"]
+    }).execute()
+
+    # Check for errors in response
+    if hasattr(response, 'error') and response.error:
+        logger.error(f"Failed to save sentiment analysis result: {response.error.message}")
+        raise HTTPException(status_code=500, detail="Failed to save sentiment analysis result")
+    
+    # Return the successful result in JSON format
+    return SentimentResponse(
+        entry_id=entry_id,
+        content=content,
+        sentiment=result["sentiment"],
+        confidence_score=result["confidence_score"]
+    )
