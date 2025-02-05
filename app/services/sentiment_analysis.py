@@ -109,3 +109,41 @@ def adjust_sentiment(sentiment_result, emotion_scores):
     sentiment_result["sentiment"] = nuanced_sentiment
 
     return sentiment_result
+
+def refine_emotion_summary(emotion_result):
+    """
+    Generate both percentage-based and human-friendly emotion summaries.
+    :param emotion_result: Dictionary of emotions and scores.
+    :return: A tuple containing percentage-based and human-friendly summaries.
+    """
+    # Get top 3 emotions for summaries
+    top_emotions = sorted(emotion_result.items(), key=lambda x: x[1], reverse=True)[:3]
+
+    # Percentage-based summary
+    percentage_summary = ", ".join([f"{emotion} ({int(score * 100)}%)" for emotion, score in top_emotions])
+
+    # Human-friendly summary
+    human_friendly_summary = f"You primarily felt {top_emotions[0][0]}, with hints of {top_emotions[1][0]} and {top_emotions[2][0]}."
+
+    return percentage_summary, human_friendly_summary
+
+def summarize_analysis(sentiment_result, emotion_result):
+    """
+    Summarize emotions and sentiment into human-readable format.
+    :param sentiment_result: Sentiment analysis result.
+    :param emotion_result: Emotion analysis result.
+    :return: Sentiment summary and emotion breakdown.
+    """
+    # Sentiment summary
+    sentiment_summary = f"Your journal today was mostly {sentiment_result['sentiment'].lower()}."
+
+    # Refine emotion summaries
+    percentage_summary, human_friendly_summary = refine_emotion_summary(emotion_result)
+
+    return {
+        "sentiment_summary": sentiment_summary,
+        "emotion_summary": {
+            "percentage_based": f"You expressed a mix of {percentage_summary}.",
+            "human_friendly": human_friendly_summary
+        }
+    }
