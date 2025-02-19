@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
 from app.db.connection import supabase_admin, supabase_anon
 from app.schemas.schemas import JournalEntryResponse
+from app.utils.encryption import encrypt_text, decrypt_text
 import logging
 
 
@@ -33,6 +34,9 @@ def get_user_journal_entries(user_id: str):
         entries = supabase_anon.table("journal_entry").select("*").eq("user_id", user_id).execute()
         if not entries.data:
             raise HTTPException(status_code=404, detail="No journal entries found for this user")
+        # Decrypt entries before returning
+        for entry in entries.data:
+            entry["content"] = decrypt_text(entry["content"])  # Decrypt content
         return entries.data
     except Exception as e:
         logger.error(f"Error fetching user journal entries: {e}")
@@ -50,9 +54,11 @@ def create_journal_entry(
     """
     try:
         logger.info(f"Creating a new journal entry for user_id: {user_id}")
-
+        # encrypt the journal entry content before storing it in the database
+        encrypted_content = encrypt_text(content)
+        
         # Prepare the data to insert
-        entry_data = {"user_id": user_id, "content": content, "title": title}
+        entry_data = {"user_id": user_id, "content": encrypted_content, "title": title}
 
         # Send the insert request to Supabase
         response = supabase_admin.table("journal_entry").insert(entry_data).execute()
