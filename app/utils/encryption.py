@@ -1,0 +1,14 @@
+from cryptography.fernet import Fernet
+from decouple import config
+
+# Load encryption key from environment variables 
+ENCRYPTION_KEY = config("ENCRYPTION_KEY")
+cipher = Fernet(ENCRYPTION_KEY)
+
+def encrypt_text(plain_text: str) -> str:
+    # Encrypts a journal entry before storing it in the database.
+    return cipher.encrypt(plain_text.encode()).decode()
+
+def decrypt_text(encrypted_text: str) -> str:
+    # Decrypts a journal entry when retrieved by the user.
+    return cipher.decrypt(encrypted_text.encode()).decode()

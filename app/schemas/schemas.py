@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Dict
+from typing import Dict, Optional
 
 # Schema for returning a journal entry
 class JournalEntryResponse(BaseModel):
@@ -15,8 +15,8 @@ class EntryRequest(BaseModel):
 # Represents the response after sentiment analysis of a journal entry
 class SentimentResponse(BaseModel):
     entry_id: int
-    content: str
-    preprocessed_content: str
+    content: Optional[str] = None
+    preprocessed_content: Optional[str] = None
     sentiment: str  # Overall sentiment classification (e.g., positive, neutral, negative)
     confidence_score: float
     sentiment_summary: str

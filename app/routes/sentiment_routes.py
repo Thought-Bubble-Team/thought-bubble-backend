@@ -3,6 +3,7 @@ from app.db.connection import supabase_admin
 from app.schemas.schemas import EntryRequest, SentimentResponse
 from app.services.sentiment_analysis import analyze_sentiment, analyze_emotion, summarize_analysis, adjust_sentiment
 from app.services.preprocessing import preprocess
+from app.utils.encryption import decrypt_text
 import logging
 
 # Use the global logger initialized in logging.py
@@ -45,12 +46,13 @@ def analyze_sentiment_endpoint(entry: EntryRequest):
         if not journal_entry.data or len(journal_entry.data) == 0:
             logger.warning(f"Journal entry with ID {entry_id} not found")
             raise HTTPException(status_code=404, detail="Journal entry not found")
-
-        # Get the content from the journal entry
-        content = journal_entry.data[0]["content"]
-
+        
+        # decrypt the journal entry content before analyzing sentiment
+        encrypted_content = journal_entry.data[0]["content"]
+        decrypted_content = decrypt_text(encrypted_content)
+    
         # Step 1: Preprocess text
-        preprocessed_text = preprocess(content)
+        preprocessed_text = preprocess(decrypted_content)
 
         # Step 2: Perform sentiment and emotion analysis
         sentiment_result = analyze_sentiment(preprocessed_text)
@@ -79,8 +81,6 @@ def analyze_sentiment_endpoint(entry: EntryRequest):
         logger.info(f"Successfully analyzed sentiment for entry ID: {entry_id}")
         return {
             "entry_id": entry_id,
-            "content": content,
-            "preprocessed_content": preprocessed_text,
             "sentiment": sentiment_result["sentiment"],
             "confidence_score": sentiment_result["confidence_score"],
             "sentiment_summary": summary["sentiment_summary"],
