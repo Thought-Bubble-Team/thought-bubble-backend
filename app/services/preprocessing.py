@@ -4,77 +4,68 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 import nltk
+from typing import List
 
-# Download necessary NLTK resources
-nltk.download("punkt")
-nltk.download("wordnet")
-nltk.download("stopwords")
+# Download necessary NLTK resources (do this ONCE)
+try:
+    stopwords.words("english")
+    WordNetLemmatizer()
+except LookupError as e:
+    print(f"Downloading NLTK resource: {e}")
+    nltk.download(str(e).split("'")[1])
+
 
 class TextPreprocessor:
     def __init__(self):
         self.stop_words = set(stopwords.words("english"))
         self.lemmatizer = WordNetLemmatizer()
 
-    def preprocess_text(self, text):
-        """
-        Preprocess the input text for emotion analysis.
-        :param text: Raw journal entry.
-        :return: Cleaned and preprocessed text.
-        """
-        # Step 1: Lowercase the text
+    def preprocess_text(self, text: str) -> str:
+        """Preprocess the input text for sentiment analysis."""
         text = text.lower()
-
-        # Step 2: Remove punctuation
-        text = text.translate(str.maketrans("", "", string.punctuation))
-
-        # Step 3: Remove numbers
-        text = re.sub(r'\d+', '', text)
-
-        # Step 4: Tokenize text
+        text = self._remove_punctuation(text)
+        text = self._remove_numbers(text)
         tokens = word_tokenize(text)
-
-        # Step 5: Handle negations (e.g., "not happy" -> "not_happy")
         tokens = self._handle_negations(tokens)
-
-        # Step 6: Remove stopwords
-        filtered_tokens = [word for word in tokens if word not in self.stop_words]
-
-        # Step 7: Lemmatize words
-        lemmatized_tokens = [self.lemmatizer.lemmatize(token) for token in filtered_tokens]
-
-        # Step 8: Reconstruct the text
-        cleaned_text = " ".join(lemmatized_tokens)
-
-        # Step 9: Remove excess whitespace
-        cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
-
+        tokens = self._remove_stopwords(tokens)
+        tokens = self._lemmatize_words(tokens)
+        cleaned_text = " ".join(tokens)
+        cleaned_text = self._remove_whitespace(cleaned_text)
         return cleaned_text
 
-    def _handle_negations(self, tokens):
-        """
-        Handle negations in the text by combining negation words with the following word.
-        :param tokens: List of tokens.
-        :return: List of tokens with handled negations.
-        """
+    def _remove_punctuation(self, text: str) -> str:
+        return text.translate(str.maketrans("", "", string.punctuation))
+
+    def _remove_numbers(self, text: str) -> str:
+        return re.sub(r"\d+", "", text)
+
+    def _handle_negations(self, tokens: List[str]) -> List[str]:
         negations = {"not", "no", "never", "n't"}
         processed_tokens = []
         skip_next = False
-
         for i in range(len(tokens)):
             if skip_next:
                 skip_next = False
                 continue
-
             if tokens[i] in negations and i + 1 < len(tokens):
-                # Combine negation with the next word (e.g., "not happy" -> "not_happy")
                 processed_tokens.append(f"{tokens[i]}_{tokens[i + 1]}")
                 skip_next = True
             else:
                 processed_tokens.append(tokens[i])
-
         return processed_tokens
 
+    def _remove_stopwords(self, tokens: List[str]) -> List[str]:
+        return [word for word in tokens if word not in self.stop_words]
+
+    def _lemmatize_words(self, tokens: List[str]) -> List[str]:
+        return [self.lemmatizer.lemmatize(token) for token in tokens]
+
+    def _remove_whitespace(self, text: str) -> str:
+        return re.sub(r"\s+", " ", text).strip()
+
+
 # Utility function for preprocessing
-def preprocess(text):
+def preprocess(text: str) -> str:
+    """Utility function to preprocess text using TextPreprocessor."""
     preprocessor = TextPreprocessor()
     return preprocessor.preprocess_text(text)
