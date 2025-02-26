@@ -1,22 +1,27 @@
 import logging
 
 def setup_logging():
-    """
-    Set up application-wide logging.
-    Includes console handler with a standard format.
-    """
-    # Define logger
+    """Set up logging with reduced verbosity for third-party libraries."""
+    
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)  # Set the default logging level
+    logger.setLevel(logging.DEBUG)  # Keep DEBUG for our app
 
     # Console handler
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.INFO)  # Default to INFO, override for specific needs
 
-    # Formatter for logs
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    # Log format
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
+    )
     console_handler.setFormatter(formatter)
 
-    # Avoid duplicate handlers
-    if not logger.handlers:
+    # Avoid multiple handlers
+    if not logger.hasHandlers():
         logger.addHandler(console_handler)
+
+    # Reduce verbosity of third-party libraries
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("hpack").setLevel(logging.WARNING)
