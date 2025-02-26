@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.get("/admin/journal-entry/", response_model=List[JournalEntryResponse])
 def get_all_journal_entries() -> List[JournalEntryResponse]:
-    """Admin: Fetch all journal entries."""
+    # Admin: Fetch all journal entries.
     logger.info("Fetching all journal entries")
     try:
         entries = supabase_admin.table("journal_entry").select("*").execute()  # type: ignore
@@ -25,7 +25,7 @@ def get_all_journal_entries() -> List[JournalEntryResponse]:
 
 @router.get("/journal-entry/{user_id}/", response_model=List[JournalEntryResponse])
 def get_user_journal_entries(user_id: str) -> List[JournalEntryResponse]:
-    """Fetch journal entries for a specific user."""
+    # Fetch journal entries for a specific user.
     logger.info(f"Fetching journal entries for user: {user_id}")
     try:
         entries = supabase_anon.table("journal_entry").select("*").eq("user_id", user_id).execute()  # type: ignore
@@ -55,7 +55,7 @@ def create_journal_entry(
     content: str = Query(..., description="The journal entry content"),
     title: str = Query(..., description="The journal entry title"),
 ) -> JournalEntryResponse:
-    """Create a new journal entry using query parameters."""
+    # Create a new journal entry using query parameters.
     logger.info(f"Creating a new journal entry for user_id: {user_id}")
     try:
         encrypted_content = encrypt_text(content)

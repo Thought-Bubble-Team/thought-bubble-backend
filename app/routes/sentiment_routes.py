@@ -12,7 +12,7 @@ router = APIRouter()
 
 @router.get("/admin/sentiment-analysis/", response_model=list[SentimentResponse])
 def get_all_sentiment_analysis() -> list[SentimentResponse]:
-    """Admin: Get all sentiment analysis results."""
+    # Admin: Get all sentiment analysis results.
     logger.info("Fetching all sentiment analysis results")
     results = supabase_admin.table("sentiment_analysis").select("*").execute()
 
@@ -25,7 +25,7 @@ def get_all_sentiment_analysis() -> list[SentimentResponse]:
 
 @router.post("/analyze-sentiment/", response_model=SentimentResponse)
 def analyze_sentiment_endpoint(entry: EntryRequest) -> SentimentResponse:
-    """API endpoint to analyze sentiment and emotion of a given journal entry."""
+    # API endpoint to analyze sentiment and emotion of a given journal entry.
     entry_id = entry.entry_id
     if not entry_id:
         logger.warning("Missing entry_id in request")
@@ -58,6 +58,7 @@ def analyze_sentiment_endpoint(entry: EntryRequest) -> SentimentResponse:
                 "sentiment": sentiment_result["sentiment"],
                 "confidence_score": sentiment_result["confidence_score"],
                 "emotions": emotion_result,
+                "strongest_emotion": summary["strongest_emotion"],
             }
         )
         .execute()  # type: ignore
@@ -75,4 +76,5 @@ def analyze_sentiment_endpoint(entry: EntryRequest) -> SentimentResponse:
         confidence_score=float(sentiment_result["confidence_score"]),
         sentiment_summary=summary["sentiment_summary"],
         emotion_summary=summary["emotion_summary"],
+        strongest_emotion=summary["strongest_emotion"],
     )
