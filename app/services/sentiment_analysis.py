@@ -33,17 +33,31 @@ EMOTION_SENTIMENT_MAPPING = {
 }
 
 
-def analyze_sentiment(text: str) -> Dict[str, float | str]:
-    text = text.strip()
-    if not text:
-        return {"sentiment": "Neutral", "confidence_score": 0.0}
+def analyze_sentiment(texts: list[str]) -> list[Dict[str, float | str]]:
+    """Analyze sentiment in batch mode for efficiency."""
 
-    result = sentiment_model(text)[0]
-    sentiment = LABEL_MAPPING.get(result["label"], "Unknown")
-    confidence_score = round(result["score"], 2)
+    # Ensure input is a list
+    if not isinstance(texts, list):
+        raise ValueError("Input must be a list of strings.")
 
-    return {"sentiment": sentiment, "confidence_score": confidence_score}
+    # Remove empty or whitespace-only texts
+    texts = [text.strip() for text in texts if text.strip()]
 
+    # If no valid text remains, return a default neutral sentiment
+    if not texts:
+        return [{"sentiment": "Neutral", "confidence_score": 0.0}]
+
+    # Process all texts at once using batch processing
+    results = sentiment_model(texts)
+
+    # Convert results to the desired format
+    return [
+        {
+            "sentiment": LABEL_MAPPING.get(res["label"], "Unknown"),
+            "confidence_score": round(res["score"], 2)
+        }
+        for res in results
+    ]
 
 def analyze_emotion(text: str) -> Dict[str, float]:
     # Analyze emotions using the GoEmotions model.
