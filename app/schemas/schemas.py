@@ -24,3 +24,4 @@ class SentimentResponse(BaseModel):
     confidence_score: float
     sentiment_summary: str
     emotion_summary: Dict[str, str]  # Breakdown of detected emotions with their intensity
+    strongest_emotion: str

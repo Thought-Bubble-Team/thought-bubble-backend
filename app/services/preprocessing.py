@@ -4,16 +4,10 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 import nltk
+nltk.download("punkt")
+nltk.download("stopwords")
+nltk.download("wordnet")
 from typing import List
-
-# Download necessary NLTK resources (do this ONCE)
-try:
-    stopwords.words("english")
-    WordNetLemmatizer()
-except LookupError as e:
-    print(f"Downloading NLTK resource: {e}")
-    nltk.download(str(e).split("'")[1])
-
 
 class TextPreprocessor:
     def __init__(self):

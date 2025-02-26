@@ -33,21 +33,34 @@ EMOTION_SENTIMENT_MAPPING = {
 }
 
 
-def analyze_sentiment(text: str) -> Dict[str, float | str]:
-    """Analyze sentiment using a model with neutral support."""
-    text = text.strip()
-    if not text:
-        return {"sentiment": "Neutral", "confidence_score": 0.0}
+def analyze_sentiment(texts: list[str]) -> list[Dict[str, float | str]]:
+    """Analyze sentiment in batch mode for efficiency."""
 
-    result = sentiment_model(text)[0]
-    sentiment = LABEL_MAPPING.get(result["label"], "Unknown")
-    confidence_score = round(result["score"], 2)
+    # Ensure input is a list
+    if not isinstance(texts, list):
+        raise ValueError("Input must be a list of strings.")
 
-    return {"sentiment": sentiment, "confidence_score": confidence_score}
+    # Remove empty or whitespace-only texts
+    texts = [text.strip() for text in texts if text.strip()]
 
+    # If no valid text remains, return a default neutral sentiment
+    if not texts:
+        return [{"sentiment": "Neutral", "confidence_score": 0.0}]
+
+    # Process all texts at once using batch processing
+    results = sentiment_model(texts)
+
+    # Convert results to the desired format
+    return [
+        {
+            "sentiment": LABEL_MAPPING.get(res["label"], "Unknown"),
+            "confidence_score": round(res["score"], 2)
+        }
+        for res in results
+    ]
 
 def analyze_emotion(text: str) -> Dict[str, float]:
-    """Analyze emotions using the GoEmotions model."""
+    # Analyze emotions using the GoEmotions model.
     text = text.strip()
     if not text:
         return {}
@@ -60,7 +73,7 @@ def analyze_emotion(text: str) -> Dict[str, float]:
 def adjust_sentiment(
     sentiment_result: Dict[str, float | str], emotion_scores: Dict[str, float]
 ) -> Dict[str, float | str]:
-    """Adjust sentiment classification by incorporating emotion weights."""
+    # Adjust sentiment classification by incorporating emotion weights.
     positive_score = sum(
         score * weight
         for emotion, (sentiment, weight) in EMOTION_SENTIMENT_MAPPING.items()
@@ -100,7 +113,7 @@ def adjust_sentiment(
 
 
 def refine_emotion_summary(emotion_result: Dict[str, float]) -> Tuple[str, str]:
-    """Generate percentage-based and human-friendly emotion summaries."""
+    # Generate percentage-based and human-friendly emotion summaries.
     top_emotions = sorted(emotion_result.items(), key=lambda x: x[1], reverse=True)[:3]
     percentage_summary = ", ".join([f"{emotion} ({int(score * 100)}%)" for emotion, score in top_emotions])
     human_friendly_summary = (
@@ -112,14 +125,18 @@ def refine_emotion_summary(emotion_result: Dict[str, float]) -> Tuple[str, str]:
 def summarize_analysis(
     sentiment_result: Dict[str, float | str], emotion_result: Dict[str, float]
 ) -> Dict[str, Dict[str, str] | str]:
-    """Summarize emotions and sentiment into human-readable format."""
+    # Summarize emotions and sentiment into human-readable format.
     sentiment_summary = f"Your journal today was mostly {sentiment_result['sentiment'].lower()}."
     percentage_summary, human_friendly_summary = refine_emotion_summary(emotion_result)
 
+    # Extract the strongest emotion
+    strongest_emotion = max(emotion_result, key=emotion_result.get, default="unknown")
+    
     return {
         "sentiment_summary": sentiment_summary,
         "emotion_summary": {
             "percentage_based": f"You expressed a mix of {percentage_summary}.",
             "human_friendly": human_friendly_summary,
         },
+        "strongest_emotion": strongest_emotion,  
     }
