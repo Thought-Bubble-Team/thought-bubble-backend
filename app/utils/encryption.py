@@ -2,8 +2,8 @@ from cryptography.fernet import Fernet
 from decouple import config
 
 # Load encryption key from environment variables
-ENCRYPTION_KEY = config("ENCRYPTION_KEY")
-cipher = Fernet(ENCRYPTION_KEY.encode())  # Ensure key is bytes
+ENCRYPTION_KEY = config("ENCRYPTION_KEY", cast=str).encode()
+cipher = Fernet(ENCRYPTION_KEY)  
 
 def encrypt_text(plain_text: str) -> str:
     """Encrypts a journal entry before storing it in the database."""
