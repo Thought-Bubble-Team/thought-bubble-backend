@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from app.db.connection import supabase_admin
-from app.schemas.schemas import EntryRequest, SentimentResponse
+from app.schemas.schemas import SentimentResponse
 from app.services import sentiment_analysis, preprocessing
 from app.utils.encryption import decrypt_text
 import logging
@@ -10,28 +10,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/admin/sentiment-analysis/", response_model=list[SentimentResponse])
-def get_all_sentiment_analysis() -> list[SentimentResponse]:
-    # Admin: Get all sentiment analysis results.
-    logger.info("Fetching all sentiment analysis results")
-    results = supabase_admin.table("sentiment_analysis").select("*").execute()
-
-    if not results.data:
-        logger.warning("No sentiment analysis results found")
-        raise HTTPException(status_code=404, detail="No sentiment analysis results found")
-
-    return [SentimentResponse(**item) for item in results.data]
-
-
 @router.post("/analyze-sentiment/", response_model=SentimentResponse)
-def analyze_sentiment_endpoint(entry: EntryRequest) -> SentimentResponse:
+def analyze_sentiment_endpoint(entry_id: int = Query(..., description="The ID of the journal entry to analyze")):
     """API endpoint to analyze sentiment and emotion of a given journal entry."""
 
-    # Extract the entry_id from the request payload
-    entry_id = entry.entry_id
     if not entry_id:
         logger.warning("Missing entry_id in request")
-        raise HTTPException(status_code=400, detail="entry_id is missing")  # Return 400 Bad Request if missing
+        raise HTTPException(status_code=400, detail="entry_id is missing")
 
     logger.info(f"Received sentiment analysis request for entry ID: {entry_id}")
 
@@ -108,3 +93,50 @@ def analyze_sentiment_endpoint(entry: EntryRequest) -> SentimentResponse:
         # Log any unexpected errors and return a 500 Internal Server Error response
         logger.error(f"Error processing sentiment analysis for Entry ID {entry_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to analyze sentiment")
+    
+@router.get("/sentiment-analysis/{entry_id}", response_model=SentimentResponse)
+def get_sentiment_analysis_by_entry_id(entry_id: int):
+    # Retrieve sentiment analysis for a specific entry ID.
+    try:
+        logger.info(f"Fetching sentiment analysis for entry ID: {entry_id}")
+        results = (
+            supabase_admin.table("sentiment_analysis")
+            .select("*")
+            .eq("entry_id", entry_id)
+            .execute()
+        )
+
+        if not results.data:
+            logger.warning(f"No sentiment analysis found for entry ID: {entry_id}")
+            raise HTTPException(status_code=404, detail="Sentiment analysis not found")
+
+        # Assuming you only want to return one result, take the first element
+        sentiment_data = results.data[0]
+        return SentimentResponse(**sentiment_data)
+
+    except Exception as e:
+        logger.error(f"Error fetching sentiment analysis for entry ID {entry_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+@router.delete("/sentiment-analysis/{entry_id}", status_code=204)  # 204 No Content on success
+def delete_sentiment_analysis_by_entry_id(entry_id: int):
+    # Delete sentiment analysis for a specific entry ID.
+    try:
+        logger.info(f"Deleting sentiment analysis for entry ID: {entry_id}")
+        response = (
+            supabase_admin.table("sentiment_analysis")
+            .delete()
+            .eq("entry_id", entry_id)
+            .execute()
+        )
+
+        if not response.data:
+            logger.error(f"Supabase returned an unexpected response: {response}")
+            raise HTTPException(status_code=500, detail="Failed to delete sentiment analysis")
+
+        logger.info(f"Sentiment analysis deleted for entry ID: {entry_id}")
+
+    except Exception as e:
+        logger.error(f"Error deleting sentiment analysis for entry ID {entry_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
