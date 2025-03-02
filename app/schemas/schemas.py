@@ -22,6 +22,6 @@ class SentimentResponse(BaseModel):
     preprocessed_content: Optional[str] = None
     sentiment: str  # Overall sentiment classification (e.g., positive, neutral, negative)
     confidence_score: float
-    sentiment_summary: str
-    emotion_summary: Dict[str, str]  # Breakdown of detected emotions with their intensity
+    sentiment_summary: Optional [str]
+    emotion_summary: Optional [Dict[str, str]]  # Breakdown of detected emotions with their intensity
     strongest_emotion: str

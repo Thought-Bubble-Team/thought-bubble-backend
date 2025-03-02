@@ -96,7 +96,6 @@ def analyze_sentiment_endpoint(entry_id: int = Query(..., description="The ID of
     
 @router.get("/sentiment-analysis/{entry_id}", response_model=SentimentResponse)
 def get_sentiment_analysis_by_entry_id(entry_id: int):
-    # Retrieve sentiment analysis for a specific entry ID.
     try:
         logger.info(f"Fetching sentiment analysis for entry ID: {entry_id}")
         results = (
@@ -110,14 +109,21 @@ def get_sentiment_analysis_by_entry_id(entry_id: int):
             logger.warning(f"No sentiment analysis found for entry ID: {entry_id}")
             raise HTTPException(status_code=404, detail="Sentiment analysis not found")
 
-        # Assuming you only want to return one result, take the first element
         sentiment_data = results.data[0]
-        return SentimentResponse(**sentiment_data)
+
+        # Ensure missing fields have defaults
+        return SentimentResponse(
+            entry_id=sentiment_data.get("entry_id"),
+            sentiment=sentiment_data.get("sentiment", "unknown"),
+            confidence_score=float(sentiment_data.get("confidence_score", 0.0)),
+            sentiment_summary=sentiment_data.get("sentiment_summary", "No summary available"),
+            emotion_summary=sentiment_data.get("emotion_summary", {}),
+            strongest_emotion=sentiment_data.get("strongest_emotion", "neutral"),
+        )
 
     except Exception as e:
         logger.error(f"Error fetching sentiment analysis for entry ID {entry_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
-
 
 @router.delete("/sentiment-analysis/{entry_id}", status_code=204)  # 204 No Content on success
 def delete_sentiment_analysis_by_entry_id(entry_id: int):
