@@ -30,6 +30,12 @@ app.include_router(journal_routes.router, prefix="/api", tags=["Journal"])
 app.include_router(sentiment_routes.router, prefix="/api", tags=["Sentiment Analysis"])
 app.include_router(mood_calender_routes.router, prefix="/api", tags=["Mood Calendar"])
 
+# Root endpoint
+@app.get("/")
+async def root():
+    return {"message": "Thought Bubble Backend is running!"}
+
+# Health check endpoint
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
