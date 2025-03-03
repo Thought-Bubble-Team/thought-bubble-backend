@@ -29,3 +29,7 @@ app.add_middleware(ExceptionHandlerMiddleware)
 app.include_router(journal_routes.router, prefix="/api", tags=["Journal"])
 app.include_router(sentiment_routes.router, prefix="/api", tags=["Sentiment Analysis"])
 app.include_router(mood_calender_routes.router, prefix="/api", tags=["Mood Calendar"])
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
