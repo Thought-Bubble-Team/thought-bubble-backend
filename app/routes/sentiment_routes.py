@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
 from app.db.connection import supabase_admin
 from app.schemas.schemas import SentimentResponse
-from app.services import sentiment_analysis, preprocessing
+from app.services import sentiment_analysis, preprocessing, emotions_analysis
 from app.utils.encryption import decrypt_text
 import logging
 
@@ -46,13 +46,13 @@ def analyze_sentiment_endpoint(entry_id: int = Query(..., description="The ID of
         sentiment_result = sentiment_analysis.analyze_sentiment([preprocessed_text])[0]
 
         # Perform emotion analysis on the same text
-        emotion_result = sentiment_analysis.analyze_emotion(preprocessed_text)
+        emotion_result = emotions_analysis.analyze_emotion(preprocessed_text)
 
         # Adjust sentiment classification based on emotion analysis results
-        sentiment_result = sentiment_analysis.adjust_sentiment(sentiment_result, emotion_result)
+        sentiment_result = emotions_analysis.adjust_sentiment(sentiment_result, emotion_result)
 
         # Summarize the overall sentiment and emotions for easier interpretation
-        summary = sentiment_analysis.summarize_analysis(sentiment_result, emotion_result)
+        summary = emotions_analysis.summarize_analysis(sentiment_result, emotion_result)
 
         logger.info(f"Sentiment analysis completed for Entry ID: {entry_id} - Sentiment: {sentiment_result['sentiment']}")
 
@@ -64,7 +64,7 @@ def analyze_sentiment_endpoint(entry_id: int = Query(..., description="The ID of
                     "entry_id": entry_id,
                     "sentiment": sentiment_result["sentiment"],
                     "confidence_score": sentiment_result["confidence_score"],
-                    "emotions": emotion_result,  # JSON field
+                    "emotions": emotion_result, 
                     "strongest_emotion": summary["strongest_emotion"],
                 }
             )
@@ -111,14 +111,23 @@ def get_sentiment_analysis_by_entry_id(entry_id: int):
 
         sentiment_data = results.data[0]
 
-        # Ensure missing fields have defaults
+        # Retrieve sentiment classification and emotions from the database
+        sentiment_result = {
+            "sentiment": sentiment_data.get("sentiment", "unknown"),
+            "confidence_score": float(sentiment_data.get("confidence_score", 0.0)),
+        }
+        emotion_result = sentiment_data.get("emotions", {})
+
+        # Always generate sentiment and emotion summaries dynamically
+        summary = emotions_analysis.summarize_analysis(sentiment_result, emotion_result)
+
         return SentimentResponse(
             entry_id=sentiment_data.get("entry_id"),
-            sentiment=sentiment_data.get("sentiment", "unknown"),
-            confidence_score=float(sentiment_data.get("confidence_score", 0.0)),
-            sentiment_summary=sentiment_data.get("sentiment_summary", "No summary available"),
-            emotion_summary=sentiment_data.get("emotion_summary", {}),
-            strongest_emotion=sentiment_data.get("strongest_emotion", "neutral"),
+            sentiment=sentiment_result["sentiment"],
+            confidence_score=sentiment_result["confidence_score"],
+            sentiment_summary=summary["sentiment_summary"],  
+            emotion_summary=summary["emotion_summary"],  
+            strongest_emotion=summary["strongest_emotion"], 
         )
 
     except Exception as e:
