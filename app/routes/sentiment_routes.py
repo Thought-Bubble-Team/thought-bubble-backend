@@ -17,8 +17,6 @@ def analyze_sentiment_endpoint(entry_id: int = Query(..., description="The ID of
     if not entry_id:
         logger.warning("Missing entry_id in request")
         raise HTTPException(status_code=400, detail="entry_id is missing")
-
-    response = requests.post(HUGGING_FACE_API, json={"entry_id": entry_id})
     
     logger.info(f"Received sentiment analysis request for entry ID: {entry_id}")
 
@@ -39,6 +37,9 @@ def analyze_sentiment_endpoint(entry_id: int = Query(..., description="The ID of
         # Decrypt the stored content of the journal entry
         decrypted_content = decrypt_text(journal_entry.data[0]["content"])
 
+        # Send the decrypted content to the Hugging Face API for sentiment analysis
+        response = requests.post(HUGGING_FACE_API, json={"content": decrypted_content})
+        
         # Preprocess the text (e.g., lowercasing, stopword removal, lemmatization)
         preprocessed_text = preprocessing.preprocess(decrypted_content)
 
