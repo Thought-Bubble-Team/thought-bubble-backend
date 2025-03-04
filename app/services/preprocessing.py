@@ -1,13 +1,21 @@
 import re
 import string
+import nltk
+import os
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
-import nltk
-nltk.download("punkt")
-nltk.download("stopwords")
-nltk.download("wordnet")
 from typing import List
+
+# Set a writable directory for NLTK data
+NLTK_DATA_PATH = "/opt/render/project/.nltk_data"
+os.makedirs(NLTK_DATA_PATH, exist_ok=True)
+nltk.data.path.append(NLTK_DATA_PATH)
+
+# Ensure required NLTK datasets are downloaded
+nltk.download("punkt", download_dir=NLTK_DATA_PATH)
+nltk.download("stopwords", download_dir=NLTK_DATA_PATH)
+nltk.download("wordnet", download_dir=NLTK_DATA_PATH)
 
 class TextPreprocessor:
     def __init__(self):
