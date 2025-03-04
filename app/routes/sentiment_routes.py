@@ -3,12 +3,12 @@ from app.db.connection import supabase_admin
 from app.schemas.schemas import SentimentResponse
 from app.services import sentiment_analysis, preprocessing, emotions_analysis
 from app.utils.encryption import decrypt_text
-import logging
+import logging, requests
 
 # Use the global logger initialized in logging.py
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
+HUGGING_FACE_API = "https://Reimers-ThoughtBubble-Sentiment.hf.space/analyze-sentiment/"
 
 @router.post("/analyze-sentiment/", response_model=SentimentResponse)
 def analyze_sentiment_endpoint(entry_id: int = Query(..., description="The ID of the journal entry to analyze")):
@@ -18,6 +18,8 @@ def analyze_sentiment_endpoint(entry_id: int = Query(..., description="The ID of
         logger.warning("Missing entry_id in request")
         raise HTTPException(status_code=400, detail="entry_id is missing")
 
+    response = requests.post(HUGGING_FACE_API, json={"entry_id": entry_id})
+    
     logger.info(f"Received sentiment analysis request for entry ID: {entry_id}")
 
     try:
