@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.middlewares.exception_handler import ExceptionHandlerMiddleware
 from app.middlewares.logging import setup_logging
-from app.routes import journal_routes, sentiment_routes, mood_calender_routes
+from app.routes import journal_routes, mood_calendar_routes, sentiment_routes
 
 # Setup logging
 setup_logging()
@@ -28,7 +28,7 @@ app.add_middleware(ExceptionHandlerMiddleware)
 # Include routers
 app.include_router(journal_routes.router, prefix="/api", tags=["Journal"])
 app.include_router(sentiment_routes.router, prefix="/api", tags=["Sentiment Analysis"])
-app.include_router(mood_calender_routes.router, prefix="/api", tags=["Mood Calendar"])
+app.include_router(mood_calendar_routes.router, prefix="/api", tags=["Mood Calendar"])
 
 # Root endpoint
 @app.get("/")
