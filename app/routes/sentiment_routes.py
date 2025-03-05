@@ -8,7 +8,7 @@ import logging, requests
 # Use the global logger initialized in logging.py
 logger = logging.getLogger(__name__)
 router = APIRouter()
-HUGGING_FACE_API = "https://Reimers-ThoughtBubble-Sentiment.hf.space/analyze-sentiment"
+HUGGING_FACE_API = "https://reimers-thoughtbubble-sentiment.hf.space/analyze-sentiment/"
 
 @router.post("/analyze-sentiment/", response_model=SentimentResponse)
 def analyze_sentiment_endpoint(entry_id: int):
