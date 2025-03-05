@@ -8,12 +8,12 @@ import logging, requests
 # Use the global logger initialized in logging.py
 logger = logging.getLogger(__name__)
 router = APIRouter()
-HUGGING_FACE_API = "https://Reimers-ThoughtBubble-Sentiment.hf.space/analyze-sentiment/"
+HUGGING_FACE_API = "https://Reimers-ThoughtBubble-Sentiment.hf.space/analyze-sentiment"
 
 @router.post("/analyze-sentiment/", response_model=SentimentResponse)
 def analyze_sentiment_endpoint(entry_id: int):
     """Sends journal entry to Hugging Face API for sentiment & emotion analysis."""
-    
+
     if not entry_id:
         logger.warning("Missing entry_id in request")
         raise HTTPException(status_code=400, detail="entry_id is missing")
@@ -36,14 +36,30 @@ def analyze_sentiment_endpoint(entry_id: int):
         # Decrypt content
         decrypted_content = decrypt_text(journal_entry.data[0]["content"])
 
+        # Ensure the content is valid
+        if not decrypted_content.strip():
+            logger.warning(f"Empty journal content for entry {entry_id}")
+            raise HTTPException(status_code=400, detail="Journal content cannot be empty")
+
         # Send request to Hugging Face API
-        response = requests.post(HUGGING_FACE_API, json={"content": decrypted_content})
+        payload = {"content": decrypted_content}
+        logger.info(f"Sending request to Hugging Face API: {HUGGING_FACE_API} with payload {payload}")
+
+        response = requests.post(HUGGING_FACE_API, json=payload, headers={"Content-Type": "application/json"})
+
+        # Log the raw response
+        logger.info(f"Hugging Face API Response Status: {response.status_code}")
+        logger.info(f"Hugging Face API Response Text: {response.text}")  
 
         if response.status_code != 200:
-            logger.error(f"Hugging Face API Error: {response.json()}")
-            raise HTTPException(status_code=500, detail="Failed to analyze sentiment")
+            raise HTTPException(status_code=500, detail=f"Hugging Face API Error: {response.text}")
 
-        analysis_result = response.json()
+        # Ensure response is JSON
+        try:
+            analysis_result = response.json()
+        except requests.exceptions.JSONDecodeError:
+            logger.error("Hugging Face API did not return valid JSON")
+            raise HTTPException(status_code=500, detail="Invalid response from Hugging Face API")
 
         # Save results to database
         db_response = (
