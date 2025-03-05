@@ -7,6 +7,9 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Ignore backup files
+backup_files/
+
 # Virtual Environment
 .venv/
 env/

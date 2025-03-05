@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Query
 from app.db.connection import supabase_admin
 from app.schemas.schemas import SentimentResponse
-from app.services import sentiment_analysis, preprocessing, emotions_analysis
 from app.utils.encryption import decrypt_text
+from app.services.analysis_summary import summarize_analysis
 import logging, requests
 
 # Use the global logger initialized in logging.py
@@ -11,17 +11,17 @@ router = APIRouter()
 HUGGING_FACE_API = "https://Reimers-ThoughtBubble-Sentiment.hf.space/analyze-sentiment/"
 
 @router.post("/analyze-sentiment/", response_model=SentimentResponse)
-def analyze_sentiment_endpoint(entry_id: int = Query(..., description="The ID of the journal entry to analyze")):
-    """API endpoint to analyze sentiment and emotion of a given journal entry."""
-
+def analyze_sentiment_endpoint(entry_id: int):
+    """Sends journal entry to Hugging Face API for sentiment & emotion analysis."""
+    
     if not entry_id:
         logger.warning("Missing entry_id in request")
         raise HTTPException(status_code=400, detail="entry_id is missing")
-    
-    logger.info(f"Received sentiment analysis request for entry ID: {entry_id}")
+
+    logger.info(f"Requesting sentiment analysis for entry ID: {entry_id}")
 
     try:
-        # Fetch the journal entry from the database using the provided entry ID
+        # Fetch journal entry from database
         journal_entry = (
             supabase_admin.table("journal_entry")
             .select("*")
@@ -29,72 +29,52 @@ def analyze_sentiment_endpoint(entry_id: int = Query(..., description="The ID of
             .execute()
         )
 
-        # If the entry does not exist, log a warning and return a 404 error
         if not journal_entry.data:
             logger.warning(f"Journal entry {entry_id} not found")
             raise HTTPException(status_code=404, detail="Journal entry not found")
 
-        # Decrypt the stored content of the journal entry
+        # Decrypt content
         decrypted_content = decrypt_text(journal_entry.data[0]["content"])
 
-        # Send the decrypted content to the Hugging Face API for sentiment analysis
+        # Send request to Hugging Face API
         response = requests.post(HUGGING_FACE_API, json={"content": decrypted_content})
-        
-        # Preprocess the text (e.g., lowercasing, stopword removal, lemmatization)
-        preprocessed_text = preprocessing.preprocess(decrypted_content)
 
-        logger.debug(f"Preprocessed Text: {preprocessed_text}")  # Log the processed text for debugging
+        if response.status_code != 200:
+            logger.error(f"Hugging Face API Error: {response.json()}")
+            raise HTTPException(status_code=500, detail="Failed to analyze sentiment")
 
-        # Perform sentiment analysis on the preprocessed text (ensure it's in list format)
-        sentiment_result = sentiment_analysis.analyze_sentiment([preprocessed_text])[0]
+        analysis_result = response.json()
 
-        # Perform emotion analysis on the same text
-        emotion_result = emotions_analysis.analyze_emotion(preprocessed_text)
-
-        # Adjust sentiment classification based on emotion analysis results
-        sentiment_result = emotions_analysis.adjust_sentiment(sentiment_result, emotion_result)
-
-        # Summarize the overall sentiment and emotions for easier interpretation
-        summary = emotions_analysis.summarize_analysis(sentiment_result, emotion_result)
-
-        logger.info(f"Sentiment analysis completed for Entry ID: {entry_id} - Sentiment: {sentiment_result['sentiment']}")
-
-        # Save analysis result to Supabase
-        response = (
+        # Save results to database
+        db_response = (
             supabase_admin.table("sentiment_analysis")
             .insert(
                 {
                     "entry_id": entry_id,
-                    "sentiment": sentiment_result["sentiment"],
-                    "confidence_score": sentiment_result["confidence_score"],
-                    "emotions": emotion_result, 
-                    "strongest_emotion": summary["strongest_emotion"],
+                    "sentiment": analysis_result["sentiment"],
+                    "confidence_score": analysis_result["confidence_score"],
+                    "emotions": analysis_result["emotion_summary"],
+                    "strongest_emotion": analysis_result["strongest_emotion"],
                 }
             )
             .execute()
         )
 
-        # Log the insert response to detect issues
-        logger.debug(f"Supabase Insert Response: {response}")
-
-        # Ensure it was successfully inserted
-        if not response.data:
-            logger.error(f"Supabase Insert Failed: {response}")
+        if not db_response.data:
+            logger.error("Failed to store sentiment analysis results in database")
             raise HTTPException(status_code=500, detail="Database insert failed")
 
-        # Return the analysis results in a structured response
         return SentimentResponse(
             entry_id=entry_id,
-            sentiment=sentiment_result["sentiment"],
-            confidence_score=float(sentiment_result["confidence_score"]),
-            sentiment_summary=summary["sentiment_summary"],
-            emotion_summary=summary["emotion_summary"],
-            strongest_emotion=summary["strongest_emotion"],
+            sentiment=analysis_result["sentiment"],
+            confidence_score=float(analysis_result["confidence_score"]),
+            sentiment_summary=analysis_result["sentiment_summary"],
+            emotion_summary=analysis_result["emotion_summary"],
+            strongest_emotion=analysis_result["strongest_emotion"],
         )
 
     except Exception as e:
-        # Log any unexpected errors and return a 500 Internal Server Error response
-        logger.error(f"Error processing sentiment analysis for Entry ID {entry_id}: {e}")
+        logger.error(f"Error in sentiment analysis: {e}")
         raise HTTPException(status_code=500, detail="Failed to analyze sentiment")
     
 @router.get("/sentiment-analysis/{entry_id}", response_model=SentimentResponse)
@@ -122,7 +102,7 @@ def get_sentiment_analysis_by_entry_id(entry_id: int):
         emotion_result = sentiment_data.get("emotions", {})
 
         # Always generate sentiment and emotion summaries dynamically
-        summary = emotions_analysis.summarize_analysis(sentiment_result, emotion_result)
+        summary = summarize_analysis(sentiment_result, emotion_result)
 
         return SentimentResponse(
             entry_id=sentiment_data.get("entry_id"),
