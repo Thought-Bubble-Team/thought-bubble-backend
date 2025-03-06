@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException, Query
 from app.db.connection import supabase_admin
 from app.schemas.schemas import SentimentResponse
 from app.utils.encryption import decrypt_text
-from app.services.analysis_summary import summarize_analysis
 import logging, requests
 
 # Use the global logger initialized in logging.py
@@ -71,6 +70,8 @@ def analyze_sentiment_endpoint(entry_id: int):
                     "confidence_score": analysis_result["confidence_score"],
                     "emotions": analysis_result["emotion_summary"],
                     "strongest_emotion": analysis_result["strongest_emotion"],
+                    "sentiment_summary": analysis_result["sentiment_summary"],  
+                    "emotion_summary": analysis_result["emotion_summary"],  
                 }
             )
             .execute()
@@ -94,9 +95,11 @@ def analyze_sentiment_endpoint(entry_id: int):
         raise HTTPException(status_code=500, detail="Failed to analyze sentiment")
     
 @router.get("/sentiment-analysis/{entry_id}", response_model=SentimentResponse)
-def get_sentiment_analysis_by_entry_id(entry_id: int):
+def get_sentiment_analysis_by_entry_id(entry_id: int, user_id: str = Query(..., description="The ID of the user")):
     try:
-        logger.info(f"Fetching sentiment analysis for entry ID: {entry_id}")
+        logger.info(f"Fetching sentiment analysis for entry ID: {entry_id} and user ID: {user_id}")
+
+        # Fetch sentiment analysis from the database
         results = (
             supabase_admin.table("sentiment_analysis")
             .select("*")
@@ -110,23 +113,25 @@ def get_sentiment_analysis_by_entry_id(entry_id: int):
 
         sentiment_data = results.data[0]
 
-        # Retrieve sentiment classification and emotions from the database
-        sentiment_result = {
-            "sentiment": sentiment_data.get("sentiment", "unknown"),
-            "confidence_score": float(sentiment_data.get("confidence_score", 0.0)),
-        }
-        emotion_result = sentiment_data.get("emotions", {})
+        # Fetch the associated journal entry to verify user ownership
+        journal_entry = (
+            supabase_admin.table("journal_entry")
+            .select("user_id")
+            .eq("entry_id", entry_id)
+            .execute()
+        )
 
-        # Always generate sentiment and emotion summaries dynamically
-        summary = summarize_analysis(sentiment_result, emotion_result)
+        if not journal_entry.data or journal_entry.data[0]["user_id"] != user_id:
+            logger.warning(f"Unauthorized access attempt for sentiment analysis of entry ID {entry_id}")
+            raise HTTPException(status_code=403, detail="Unauthorized access to sentiment data")
 
         return SentimentResponse(
             entry_id=sentiment_data.get("entry_id"),
-            sentiment=sentiment_result["sentiment"],
-            confidence_score=sentiment_result["confidence_score"],
-            sentiment_summary=summary["sentiment_summary"],  
-            emotion_summary=summary["emotion_summary"],  
-            strongest_emotion=summary["strongest_emotion"], 
+            sentiment=sentiment_data.get("sentiment", "unknown"),
+            confidence_score=float(sentiment_data.get("confidence_score", 0.0)),
+            sentiment_summary=sentiment_data.get("sentiment_summary", "No summary available"),  
+            emotion_summary=sentiment_data.get("emotion_summary", {}),  
+            strongest_emotion=sentiment_data.get("strongest_emotion", "neutral"), 
         )
 
     except Exception as e:
