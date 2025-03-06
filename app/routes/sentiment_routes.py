@@ -68,7 +68,7 @@ def analyze_sentiment_endpoint(entry_id: int):
                     "entry_id": entry_id,
                     "sentiment": analysis_result["sentiment"],
                     "confidence_score": analysis_result["confidence_score"],
-                    "emotions": analysis_result["emotions"],
+                    "emotions": analysis_result["emotion_results"],
                     "strongest_emotion": analysis_result["strongest_emotion"],
                     "sentiment_summary": analysis_result["sentiment_summary"],  
                     "emotion_summary": analysis_result["emotion_summary"],  
