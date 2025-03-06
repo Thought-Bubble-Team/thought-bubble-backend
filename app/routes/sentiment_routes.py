@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException, Query
 from app.db.connection import supabase_admin
 from app.schemas.schemas import SentimentResponse
 from app.utils.encryption import decrypt_text
-from app.services.analysis_summary import summarize_analysis
 import logging, requests
 
 # Use the global logger initialized in logging.py
