@@ -68,7 +68,7 @@ def analyze_sentiment_endpoint(entry_id: int):
                     "entry_id": entry_id,
                     "sentiment": analysis_result["sentiment"],
                     "confidence_score": analysis_result["confidence_score"],
-                    "emotions": analysis_result["emotion_result"],
+                    "emotions": analysis_result["emotions"],
                     "strongest_emotion": analysis_result["strongest_emotion"],
                     "analysis_feedback": analysis_result["analysis_feedback"],
                 }
@@ -84,8 +84,8 @@ def analyze_sentiment_endpoint(entry_id: int):
             entry_id=entry_id,
             sentiment=analysis_result["sentiment"],
             confidence_score=float(analysis_result["confidence_score"]),
-            emotions=analysis_result["emotion_summary"],
             strongest_emotion=analysis_result["strongest_emotion"],
+            analysis_feedback=analysis_result["analysis_feedback"],
         )
 
     except Exception as e:
@@ -127,8 +127,7 @@ def get_sentiment_analysis_by_entry_id(entry_id: int, user_id: str = Query(..., 
             entry_id=sentiment_data.get("entry_id"),
             sentiment=sentiment_data.get("sentiment", "unknown"),
             confidence_score=float(sentiment_data.get("confidence_score", 0.0)),
-            sentiment_summary=sentiment_data.get("sentiment_summary", "No summary available"),  
-            emotion_summary=sentiment_data.get("emotion_summary", {}),  
+            analysis_feedback=sentiment_data.get("analysis_feedback", None),
             strongest_emotion=sentiment_data.get("strongest_emotion", "neutral"), 
         )
 

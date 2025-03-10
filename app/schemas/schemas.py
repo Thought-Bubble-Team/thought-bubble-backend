@@ -18,10 +18,7 @@ class EntryRequest(BaseModel):
 # Represents the response after sentiment analysis of a journal entry
 class SentimentResponse(BaseModel):
     entry_id: int
-    content: Optional[str] = None
-    preprocessed_content: Optional[str] = None
     sentiment: str  # Overall sentiment classification (e.g., positive, neutral, negative)
     confidence_score: float
-    emotion_result: Optional [Dict[str, str]] 
     analysis_feedback: Optional[str] 
     strongest_emotion: str
