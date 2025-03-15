@@ -1,3 +1,10 @@
+import nltk
+
+nltk.download('punkt')
+nltk.download('punkt_tab')
+nltk.download('wordnet')
+nltk.download('omw-1.4')
+
 from fastapi import APIRouter, HTTPException, Query
 from app.db.connection import supabase_admin
 from app.utils.encryption import decrypt_text
@@ -7,16 +14,30 @@ import logging
 import re
 from typing import Dict
 
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# Standard NLTK stop words
+stop_words = set(stopwords.words('english'))
+
+# Custom stop words for informal language
+custom_stop_words = {"even", "im", "like", "gonna", "wanna", "gotta"}  
+
+# Combine standard and custom stop words
+stop_words = stop_words.union(custom_stop_words)
+
 def extract_words(text: str) -> list[str]:
-    
-    # Extract words from the input text, convert to lowercase, remove punctuation, and split into words.
-    
+    """
+    Extract words from the input text, convert to lowercase, remove punctuation,
+    split into words, and remove stop words using NLTK.
+    """
     text = text.lower()  # Lowercase the text
     text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
-    words = text.split()  # Split into words
+    words = word_tokenize(text)  # Tokenize the text
+    words = [word for word in words if word not in stop_words]  # Remove stop words
     return words
 
 @router.get("/reoccurring-words/",
@@ -30,9 +51,9 @@ def get_reoccurring_words(
     month: int = Query(None, description="Month number (1-12), required if period is monthly"),
     year: int = Query(None, description="Year, required if period is monthly")
 ):
-    
-    # Fetches and counts reoccurring words from a user's journal entries, either for a week or a month.
-    
+    """
+    Fetches and counts reoccurring words from a user's journal entries, either for a week or a month.
+    """
     try:
         logger.info(f"Fetching reoccurring words for user {user_id} - Period: {period}")
 

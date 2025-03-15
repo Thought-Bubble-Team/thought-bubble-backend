@@ -16,28 +16,44 @@ class UpdateJournalEntry(BaseModel):
 
 @router.get("/journal-entry/{user_id}/", response_model=List[JournalEntryResponse])
 def get_user_journal_entries(user_id: str) -> List[JournalEntryResponse]:
-    # Fetch journal entries for a specific user.
+    """
+    Fetch journal entries for a specific user.
+    """
     try:
         logger.info(f"Fetching journal entries for user: {user_id}")
-        entries = supabase_anon.table("journal_entry").select("*").eq("user_id", user_id).execute()
+
+        # Use supabase_admin to bypass RLS if necessary
+        entries = supabase_admin.table("journal_entry").select("*").eq("user_id", user_id).execute()
+
+        # Log raw response for debugging
+        logger.debug(f"Supabase response: {entries}")
+
         if not entries.data:
+            logger.warning(f"No journal entries found for user {user_id}")
             raise HTTPException(status_code=404, detail="No journal entries found for this user")
 
+        # Decrypt entries before returning
         journal_entries = []
         for entry in entries.data:
-            decrypted_content = decrypt_text(entry["content"])
-            journal_entry = JournalEntryResponse(
-                entry_id=entry["entry_id"],
-                user_id=entry["user_id"],
-                content=decrypted_content,
-                title=entry["title"],
-            )
-            journal_entries.append(journal_entry)
+            try:
+                decrypted_content = decrypt_text(entry["content"])
+                journal_entry = JournalEntryResponse(
+                    entry_id=entry["entry_id"],
+                    user_id=entry["user_id"],
+                    content=decrypted_content,
+                    title=entry["title"],
+                )
+                journal_entries.append(journal_entry)
+            except Exception as decryption_error:
+                logger.error(f"Decryption failed for entry ID {entry['entry_id']}: {decryption_error}")
+                raise HTTPException(status_code=500, detail="Failed to decrypt journal entry content")
 
         return journal_entries
+
     except Exception as e:
         logger.error(f"Error fetching user journal entries: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
 
 
 @router.post("/admin/journal-entry/", response_model=JournalEntryResponse)
@@ -136,3 +152,4 @@ def delete_journal_entry(entry_id: int):
     except Exception as e:
         logger.error(f"Error deleting journal entry: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
