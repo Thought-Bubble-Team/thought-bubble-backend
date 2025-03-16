@@ -3,8 +3,9 @@ from app.db.connection import supabase_admin, supabase_anon
 from app.schemas.schemas import JournalEntryResponse
 from app.utils.encryption import encrypt_text, decrypt_text
 import logging
-from typing import List
+from typing import List, Union
 from pydantic import BaseModel
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -19,20 +20,20 @@ def get_user_journal_entries(user_id: str) -> List[JournalEntryResponse]:
     """
     Fetch journal entries for a specific user.
     """
+    logger.info(f"Fetching journal entries for user: {user_id}")
     try:
-        logger.info(f"Fetching journal entries for user: {user_id}")
-
-        # Use supabase_admin to bypass RLS if necessary
+        # Query the database for journal entries for the given user ID
         entries = supabase_admin.table("journal_entry").select("*").eq("user_id", user_id).execute()
 
-        # Log raw response for debugging
+        # Log the raw response for debugging purposes
         logger.debug(f"Supabase response: {entries}")
 
+        # If no entries are found, raise an HTTPException with a 404 status code
         if not entries.data:
             logger.warning(f"No journal entries found for user {user_id}")
             raise HTTPException(status_code=404, detail="No journal entries found for this user")
 
-        # Decrypt entries before returning
+        # Decrypt the content of each journal entry before returning it
         journal_entries = []
         for entry in entries.data:
             try:
@@ -52,12 +53,17 @@ def get_user_journal_entries(user_id: str) -> List[JournalEntryResponse]:
 
         return journal_entries
 
+    except HTTPException as http_exc:
+        # Reraise HTTP exceptions (e.g., 404) to be handled by middleware or FastAPI
+        logger.warning(f"HTTPException occurred: {http_exc.detail}")
+        raise http_exc
+
     except Exception as e:
+        # Log unexpected errors and raise an internal server error exception
         logger.error(f"Error fetching user journal entries: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
-
-
-
+    
+    
 @router.post("/admin/journal-entry/", response_model=JournalEntryResponse)
 def create_journal_entry(
     user_id: str = Query(..., description="The ID of the user"),
@@ -94,22 +100,28 @@ def update_journal_entry(
     content: str = Query(..., description="The journal entry content"),
     title: str = Query(..., description="The journal entry title"),
 ):
+    
     # Update an existing journal entry using query parameters.
+    
     try:
         logger.info(f"Updating journal entry with ID: {entry_id}")
 
         # Encrypt the updated content
         encrypted_content = encrypt_text(content)
 
-        # Prepare the data to update
-        update_data = {"content": encrypted_content, "title": title, "user_id":user_id}
+        # Prepare the data to update, including updated_at timestamp
+        update_data = {
+            "content": encrypted_content,
+            "title": title,
+            "updated_at": datetime.utcnow().isoformat()  # Set updated_at to current timestamp
+        }
 
         # Send the update request to Supabase
         response = (
             supabase_admin.table("journal_entry")
             .update(update_data)
             .eq("entry_id", entry_id)
-            .execute()  # type: ignore
+            .execute()
         )
 
         # Check if the update was successful
@@ -118,19 +130,22 @@ def update_journal_entry(
             raise HTTPException(status_code=500, detail="Failed to update journal entry")
 
         updated_entry = response.data[0]
+
         # Decrypt the content before returning the response
         decrypted_content = decrypt_text(updated_entry["content"])
+        
         return JournalEntryResponse(
             entry_id=updated_entry["entry_id"],
             user_id=updated_entry["user_id"],
             content=decrypted_content,
             title=updated_entry["title"],
+            created_at=updated_entry["created_at"],
+            updated_at=updated_entry["updated_at"],  # Return updated_at timestamp
         )
 
     except Exception as e:
         logger.error(f"Error updating journal entry: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
-
 
 @router.delete("/journal-entry/{entry_id}", status_code=204)
 def delete_journal_entry(entry_id: int):
