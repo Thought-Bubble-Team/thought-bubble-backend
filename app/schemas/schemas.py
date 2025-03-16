@@ -7,7 +7,9 @@ class JournalEntryResponse(BaseModel):
     entry_id: int
     user_id: str = Field(..., example="user123")
     content: str = Field(..., example="This is a sample journal entry.")
-    title: str = Field(..., example="Sample Journal Entry")
+    title: str = Field(..., example="Sample Journal Entry") 
+    created_at: str = Field(..., example="2021-08-01T12:00:00")
+    updated_at: str = Field(..., example="2021-08-01T12:00:00")
 
 
 # Represents a request to fetch a journal entry based on its ID
