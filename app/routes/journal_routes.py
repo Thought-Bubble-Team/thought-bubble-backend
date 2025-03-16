@@ -42,6 +42,8 @@ def get_user_journal_entries(user_id: str) -> List[JournalEntryResponse]:
                     user_id=entry["user_id"],
                     content=decrypted_content,
                     title=entry["title"],
+                    created_at=entry["created_at"],
+                    updated_at=entry["updated_at"],
                 )
                 journal_entries.append(journal_entry)
             except Exception as decryption_error:
