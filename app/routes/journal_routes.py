@@ -3,7 +3,7 @@ from app.db.connection import supabase_admin, supabase_anon
 from app.schemas.schemas import JournalEntryResponse
 from app.utils.encryption import encrypt_text, decrypt_text
 import logging
-from typing import List
+from typing import List, Union
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -20,20 +20,20 @@ def get_user_journal_entries(user_id: str) -> List[JournalEntryResponse]:
     """
     Fetch journal entries for a specific user.
     """
+    logger.info(f"Fetching journal entries for user: {user_id}")
     try:
-        logger.info(f"Fetching journal entries for user: {user_id}")
-
-        # Use supabase_admin to bypass RLS if necessary
+        # Query the database for journal entries for the given user ID
         entries = supabase_admin.table("journal_entry").select("*").eq("user_id", user_id).execute()
 
-        # Log raw response for debugging
+        # Log the raw response for debugging purposes
         logger.debug(f"Supabase response: {entries}")
 
+        # If no entries are found, raise an HTTPException with a 404 status code
         if not entries.data:
             logger.warning(f"No journal entries found for user {user_id}")
             raise HTTPException(status_code=404, detail="No journal entries found for this user")
 
-        # Decrypt entries before returning
+        # Decrypt the content of each journal entry before returning it
         journal_entries = []
         for entry in entries.data:
             try:
@@ -53,12 +53,17 @@ def get_user_journal_entries(user_id: str) -> List[JournalEntryResponse]:
 
         return journal_entries
 
+    except HTTPException as http_exc:
+        # Reraise HTTP exceptions (e.g., 404) to be handled by middleware or FastAPI
+        logger.warning(f"HTTPException occurred: {http_exc.detail}")
+        raise http_exc
+
     except Exception as e:
+        # Log unexpected errors and raise an internal server error exception
         logger.error(f"Error fetching user journal entries: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
-
-
-
+    
+    
 @router.post("/admin/journal-entry/", response_model=JournalEntryResponse)
 def create_journal_entry(
     user_id: str = Query(..., description="The ID of the user"),
