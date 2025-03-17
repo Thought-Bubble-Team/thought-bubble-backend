@@ -23,7 +23,7 @@ def get_user_journal_entries(user_id: str) -> List[JournalEntryResponse]:
     logger.info(f"Fetching journal entries for user: {user_id}")
     try:
         # Query the database for journal entries for the given user ID
-        entries = supabase_admin.table("journal_entry").select("*").eq("user_id", user_id).order('entry_id', desc=False).execute()
+        entries = supabase_admin.table("journal_entry").select("*").eq("user_id", user_id).order('entry_id', desc=True).execute()
 
         # Log the raw response for debugging purposes
         logger.debug(f"Supabase response: {entries}")
