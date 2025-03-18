@@ -87,6 +87,8 @@ def create_journal_entry(
             user_id=new_entry["user_id"],
             content=content,  # Return the original content, not the encrypted one
             title=new_entry["title"],
+            created_at=new_entry["created_at"],
+            updated_at=new_entry["updated_at"],
         )
     except Exception as e:
         logger.error(f"Error creating journal entry: {e}")
