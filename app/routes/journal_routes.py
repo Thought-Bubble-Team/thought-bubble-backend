@@ -6,6 +6,7 @@ import logging
 from typing import List, Union
 from pydantic import BaseModel
 from datetime import datetime
+import concurrent.futures
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -16,53 +17,72 @@ class UpdateJournalEntry(BaseModel):
     title: str
 
 @router.get("/journal-entry/{user_id}/", response_model=List[JournalEntryResponse])
-def get_user_journal_entries(user_id: str) -> List[JournalEntryResponse]:
-    """
-    Fetch journal entries for a specific user.
-    """
-    logger.info(f"Fetching journal entries for user: {user_id}")
+def get_user_journal_entries(
+    user_id: str,
+    limit: int = Query(50, description="Number of journal entries to return"),
+    offset: int = Query(0, description="Number of journal entries to skip")
+) -> List[JournalEntryResponse]:
+    # Fetch journal entries for a specific user with pagination.
+    # Log the request details including user_id, limit, and offset.
+    logger.info(f"Fetching journal entries for user: {user_id} with limit={limit} and offset={offset}")
+    
     try:
-        # Query the database for journal entries for the given user ID
-        entries = supabase_admin.table("journal_entry").select("*").eq("user_id", user_id).order('entry_id', desc=True).execute()
+        # Query the database using Supabase with pagination:
+        # - Filter journal entries by user_id.
+        # - Order the entries by 'entry_id' in descending order (latest entries first).
+        # - Apply pagination using the .range() method.
+        entries = (
+            supabase_admin.table("journal_entry")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("entry_id", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
 
-        # Log the raw response for debugging purposes
-        logger.debug(f"Supabase response: {entries}")
-
-        # If no entries are found, raise an HTTPException with a 404 status code
+        # If no entries are found, log a warning and return an empty list.
         if not entries.data:
-            logger.warning(f"No journal entries found for user {user_id}")
-            raise HTTPException(status_code=404, detail="No journal entries found for this user")
+            logger.warning(f"No journal entries found for user {user_id}. Returning empty list.")
+            return []
 
-        # Decrypt the content of each journal entry before returning it
-        journal_entries = []
-        for entry in entries.data:
+        # Define a helper function to process each journal entry:
+        # - Decrypt the content using decrypt_text().
+        # - Return a JournalEntryResponse object with the decrypted content and other details.
+        def process_entry(entry: dict) -> JournalEntryResponse:
             try:
                 decrypted_content = decrypt_text(entry["content"])
-                journal_entry = JournalEntryResponse(
+                return JournalEntryResponse(
                     entry_id=entry["entry_id"],
                     user_id=entry["user_id"],
                     content=decrypted_content,
                     title=entry["title"],
-                    created_at=entry["created_at"],
-                    updated_at=entry["updated_at"],
+                    created_at=entry.get("created_at"),
+                    updated_at=entry.get("updated_at"),
                 )
-                journal_entries.append(journal_entry)
             except Exception as decryption_error:
-                logger.error(f"Decryption failed for entry ID {entry['entry_id']}: {decryption_error}")
+                # Log error if decryption fails for this entry.
+                logger.error(f"Decryption failed for entry ID {entry.get('entry_id')}: {decryption_error}")
+                # Propagate the error via HTTPException.
                 raise HTTPException(status_code=500, detail="Failed to decrypt journal entry content")
 
+        # Use ThreadPoolExecutor to decrypt entries concurrently,
+        # which speeds up processing when handling multiple entries.
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            journal_entries = list(executor.map(process_entry, entries.data))
+
+        # Return the list of processed journal entries.
         return journal_entries
 
     except HTTPException as http_exc:
-        # Reraise HTTP exceptions (e.g., 404) to be handled by middleware or FastAPI
+        # Log and re-raise any HTTPExceptions encountered.
         logger.warning(f"HTTPException occurred: {http_exc.detail}")
         raise http_exc
 
     except Exception as e:
-        # Log unexpected errors and raise an internal server error exception
+        # Log unexpected errors and return a generic 500 error.
         logger.error(f"Error fetching user journal entries: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
-    
+
     
 @router.post("/admin/journal-entry/", response_model=JournalEntryResponse)
 def create_journal_entry(
