@@ -7,6 +7,7 @@ from typing import List, Union
 from pydantic import BaseModel
 from datetime import datetime
 import concurrent.futures
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -169,9 +170,9 @@ def update_journal_entry(
         logger.error(f"Error updating journal entry: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-@router.delete("/journal-entry/{entry_id}", status_code=204)
+@router.delete("/journal-entry/{entry_id}", status_code=200)
 def delete_journal_entry(entry_id: int):
-    # Delete a journal entry.
+    """Deletes a journal entry by ID, leveraging ON DELETE CASCADE."""
     try:
         logger.info(f"Deleting journal entry with ID: {entry_id}")
 
@@ -180,15 +181,24 @@ def delete_journal_entry(entry_id: int):
             supabase_admin.table("journal_entry")
             .delete()
             .eq("entry_id", entry_id)
-            .execute()  # type: ignore
+            .execute()
         )
 
         # Check if the deletion was successful
         if not response.data:
-            logger.error(f"Supabase returned an unexpected response: {response}")
-            raise HTTPException(status_code=500, detail="Failed to delete journal entry")
+            logger.warning(f"Journal entry {entry_id} not found for deletion.")
+            return JSONResponse(
+                status_code=404,
+                content={"message": "Journal entry not found or already deleted", "entry_id": entry_id},
+            )
+
+        logger.info(f"Successfully deleted journal entry with ID: {entry_id}")
+
+        return JSONResponse(
+            status_code=200,
+            content={"message": "Journal entry deleted successfully", "entry_id": entry_id},
+        )
 
     except Exception as e:
-        logger.error(f"Error deleting journal entry: {e}")
+        logger.error(f"Error deleting journal entry {entry_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
-
