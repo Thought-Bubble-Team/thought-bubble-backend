@@ -9,6 +9,7 @@ __pycache__/
 
 # Ignore backup files
 backup_files/
+debugging/
 
 # Virtual Environment
 .venv/

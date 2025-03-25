@@ -2,15 +2,17 @@ from fastapi import APIRouter, HTTPException, Query, Path, Depends
 from app.db.connection import supabase_admin, supabase_anon
 from app.schemas.schemas import JournalEntryResponse
 from app.utils.encryption import encrypt_text, decrypt_text
-import logging
+import logging, requests
 from typing import List, Union
 from pydantic import BaseModel
 from datetime import datetime
 import concurrent.futures
 from fastapi.responses import JSONResponse
 
+# Use the global logger initialized in logging.py
 logger = logging.getLogger(__name__)
 router = APIRouter()
+HUGGING_FACE_API = "https://reimers-thoughtbubble-sentiment.hf.space/analyze-sentiment/"
 
 # Define a Pydantic model for updating a journal entry
 class UpdateJournalEntry(BaseModel):
@@ -119,27 +121,20 @@ def create_journal_entry(
 @router.put("/journal-entry/{entry_id}", response_model=JournalEntryResponse)
 def update_journal_entry(
     entry_id: int,
-    user_id: str = Query(..., description="The ID of the user"),
-    content: str = Query(..., description="The journal entry content"),
-    title: str = Query(..., description="The journal entry title"),
+    user_id: str = Query(...),
+    content: str = Query(...),
+    title: str = Query(...),
 ):
-    
-    # Update an existing journal entry using query parameters.
-    
     try:
         logger.info(f"Updating journal entry with ID: {entry_id}")
 
-        # Encrypt the updated content
         encrypted_content = encrypt_text(content)
-
-        # Prepare the data to update, including updated_at timestamp
         update_data = {
             "content": encrypted_content,
             "title": title,
-            "updated_at": datetime.utcnow().isoformat()  # Set updated_at to current timestamp
+            "updated_at": datetime.utcnow().isoformat()
         }
 
-        # Send the update request to Supabase
         response = (
             supabase_admin.table("journal_entry")
             .update(update_data)
@@ -147,23 +142,48 @@ def update_journal_entry(
             .execute()
         )
 
-        # Check if the update was successful
         if not response.data:
-            logger.error(f"Supabase returned an unexpected response: {response}")
             raise HTTPException(status_code=500, detail="Failed to update journal entry")
 
         updated_entry = response.data[0]
-
-        # Decrypt the content before returning the response
         decrypted_content = decrypt_text(updated_entry["content"])
-        
+
+        # Delete existing sentiment analysis
+        supabase_admin.table("sentiment_analysis").delete().eq("entry_id", entry_id).execute()
+
+        # Re-run analysis by calling API endpoint
+        analysis_response = requests.post(
+            f"{HUGGING_FACE_API}",
+            json={"content": decrypted_content},
+            headers={"Content-Type": "application/json"}
+        )
+
+        if analysis_response.status_code != 200:
+            logger.error(f"Failed to analyze updated entry: {analysis_response.text}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to re-analyze sentiment after journal update"
+            )
+
+        analysis_result = analysis_response.json()
+
+        # Save new analysis to Supabase
+        supabase_admin.table("sentiment_analysis").insert({
+            "entry_id": entry_id,
+            "sentiment": analysis_result["sentiment"],
+            "confidence_score": analysis_result["confidence_score"],
+            "emotions": analysis_result["emotions"],
+            "strongest_emotion": analysis_result["strongest_emotion"],
+            "analysis_feedback": analysis_result["analysis_feedback"],
+        }).execute()
+
         return JournalEntryResponse(
             entry_id=updated_entry["entry_id"],
             user_id=updated_entry["user_id"],
             content=decrypted_content,
             title=updated_entry["title"],
             created_at=updated_entry["created_at"],
-            updated_at=updated_entry["updated_at"],  # Return updated_at timestamp
+            updated_at=updated_entry["updated_at"],
         )
 
     except Exception as e:
