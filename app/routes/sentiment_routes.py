@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Query
 from app.db.connection import supabase_admin
-from app.schemas.schemas import SentimentResponse
+from app.schemas.schemas import SentimentResponse, SentimentResponseNoEmotions
 from app.utils.encryption import decrypt_text
 import logging, requests
+from typing import List
 
 # Use the global logger initialized in logging.py
 logger = logging.getLogger(__name__)
@@ -133,6 +134,56 @@ def get_sentiment_analysis_by_entry_id(entry_id: int, user_id: str = Query(..., 
 
     except Exception as e:
         logger.error(f"Error fetching sentiment analysis for entry ID {entry_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+@router.get("/all-sentiment-analysis/{user_id}", response_model=List[SentimentResponseNoEmotions])
+def get_all_sentiment_analysis_for_user(
+    user_id: str,
+    limit: int = Query(50, description="Number of sentiment analysis entries to return"),
+    offset: int = Query(0, description="Number of sentiment analysis entries to skip")
+) -> List[SentimentResponseNoEmotions]:
+    """
+    Fetch all sentiment analysis entries for a specific user.
+    """
+    try:
+        logger.info(f"Fetching sentiment analysis entries for user: {user_id} with limit={limit} and offset={offset}")
+
+        # Step 1: Fetch all entry_ids for the given user_id from the journal_entry table
+        journal_entries = (
+            supabase_admin.table("journal_entry")
+            .select("entry_id")
+            .eq("user_id", user_id)
+            .order("entry_id", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
+
+        if not journal_entries.data:
+            logger.warning(f"No journal entries found for user: {user_id}")
+            raise HTTPException(status_code=404, detail="No journal entries found for this user")
+
+        # Extract entry_ids from the journal entries
+        entry_ids = [entry["entry_id"] for entry in journal_entries.data]
+
+        # Step 2: Fetch sentiment analysis entries for the extracted entry_ids
+        sentiment_results = (
+            supabase_admin.table("sentiment_analysis")
+            .select(
+                "sentiment_id, entry_id, sentiment, confidence_score, created_at, emotions, strongest_emotion, analysis_feedback"
+            )
+            .in_("entry_id", entry_ids)
+            .execute()
+        )
+
+        if not sentiment_results.data:
+            logger.warning(f"No sentiment analysis entries found for user: {user_id}")
+            raise HTTPException(status_code=404, detail="No sentiment analysis entries found for this user")
+
+        # Return the fetched data
+        return sentiment_results.data
+
+    except Exception as e:
+        logger.error(f"Error fetching sentiment analysis entries for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.delete("/sentiment-analysis/{entry_id}", status_code=204)  # 204 No Content on success
