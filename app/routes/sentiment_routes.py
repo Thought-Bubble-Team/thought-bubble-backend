@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from app.db.connection import supabase_admin
-from app.schemas.schemas import SentimentResponse, SentimentResponseNoEmotions
+from app.schemas.schemas import SentimentResponse
 from app.utils.encryption import decrypt_text
 import logging, requests
 from typing import List
@@ -136,12 +136,12 @@ def get_sentiment_analysis_by_entry_id(entry_id: int, user_id: str = Query(..., 
         logger.error(f"Error fetching sentiment analysis for entry ID {entry_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-@router.get("/all-sentiment-analysis/{user_id}", response_model=List[SentimentResponseNoEmotions])
+@router.get("/all-sentiment-analysis/{user_id}", response_model=List[SentimentResponse])
 def get_all_sentiment_analysis_for_user(
     user_id: str,
     limit: int = Query(50, description="Number of sentiment analysis entries to return"),
     offset: int = Query(0, description="Number of sentiment analysis entries to skip")
-) -> List[SentimentResponseNoEmotions]:
+) -> List[SentimentResponse]:
     """
     Fetch all sentiment analysis entries for a specific user.
     """
