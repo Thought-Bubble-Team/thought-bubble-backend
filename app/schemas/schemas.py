@@ -24,7 +24,6 @@ class SentimentResponse(BaseModel):
     confidence_score: float
     analysis_feedback: Optional[str] 
     strongest_emotion: str
-    emotions: Optional[Dict[str, float]]
     
 # Password Reset Schema
 class PasswordResetRequest(BaseModel):
