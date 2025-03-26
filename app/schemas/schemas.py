@@ -24,3 +24,10 @@ class SentimentResponse(BaseModel):
     confidence_score: float
     analysis_feedback: Optional[str] 
     strongest_emotion: str
+    emotions: Optional[Dict[str, float]]
+    
+# Password Reset Schema
+class PasswordResetRequest(BaseModel):
+    user_id: str = Field(..., description="Supabase user ID")
+    new_password: str = Field(..., min_length=8, description="New password")
+    confirm_password: str = Field(..., min_length=8, description="Confirm new password")

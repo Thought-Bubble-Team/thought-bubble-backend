@@ -19,7 +19,7 @@ class UpdateJournalEntry(BaseModel):
     content: str
     title: str
 
-@router.get("/journal-entry/{user_id}/", response_model=List[JournalEntryResponse])
+@router.get("/journal-entry/{user_id}/", response_model=List[JournalEntryResponse], include_in_schema=False)
 def get_user_journal_entries(
     user_id: str,
     limit: int = Query(50, description="Number of journal entries to return"),
