@@ -26,7 +26,6 @@ class SentimentResponse(BaseModel):
     strongest_emotion: str
 
 
-
 # Password Reset Schema
 class PasswordResetRequest(BaseModel):
     user_id: str = Field(..., description="Supabase user ID")
