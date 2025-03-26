@@ -4,7 +4,7 @@ from app.middlewares.exception_handler import ExceptionHandlerMiddleware
 from app.middlewares.logging import setup_logging
 from app.routes import journal_routes, mood_calendar_routes, sentiment_routes, reoccurring_words_routes, authentication_route
 from app.routes.mood_bar_routes import router as mood_bar_router
-from app.debugging import test_routes
+# from app.debugging import test_routes
 
 # Setup logging
 setup_logging()
