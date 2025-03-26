@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.middlewares.exception_handler import ExceptionHandlerMiddleware
 from app.middlewares.logging import setup_logging
-from app.routes import journal_routes, mood_calendar_routes, sentiment_routes, reoccurring_words_routes, authentication_route
+from app.routes import journal_routes, mood_calendar_routes, sentiment_routes, authentication_route
 from app.routes.mood_bar_routes import router as mood_bar_router
 # from app.debugging import test_routes
 
@@ -33,7 +33,6 @@ app.include_router(authentication_route.router, prefix="/api", tags=["Authentica
 app.include_router(journal_routes.router, prefix="/api", tags=["Journal"])
 app.include_router(sentiment_routes.router, prefix="/api", tags=["Sentiment Analysis"])
 app.include_router(mood_calendar_routes.router, prefix="/api", tags=["Mood Calendar"])
-app.include_router(reoccurring_words_routes.router, prefix="/api", tags=["Reoccurring Words"])
 app.include_router(mood_bar_router, prefix="/api", tags=["Mood Bar"])
 
 # Root endpoint
