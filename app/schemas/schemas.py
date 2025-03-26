@@ -22,10 +22,19 @@ class SentimentResponse(BaseModel):
     entry_id: int
     sentiment: str  # Overall sentiment classification (e.g., positive, neutral, negative)
     confidence_score: float
-    analysis_feedback: Optional[str] 
+    analysis_feedback: Optional[str] = None
     strongest_emotion: str
     emotions: Optional[Dict[str, float]]
-    
+
+# Represents the response after sentiment analysis of a journal entry without emotions
+class SentimentResponseNoEmotions(BaseModel):
+    entry_id: int
+    sentiment: str  # Overall sentiment classification (e.g., positive, neutral, negative)
+    confidence_score: float
+    analysis_feedback: Optional[str] = None
+    strongest_emotion: str
+
+
 # Password Reset Schema
 class PasswordResetRequest(BaseModel):
     user_id: str = Field(..., description="Supabase user ID")
