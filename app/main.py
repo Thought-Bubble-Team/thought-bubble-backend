@@ -28,7 +28,7 @@ app.add_middleware(
 app.add_middleware(ExceptionHandlerMiddleware)
 
 # Include routers
-app.include_router(test_routes.router, prefix="/api", tags=["Debugging"])
+# app.include_router(test_routes.router, prefix="/api", tags=["Debugging"])
 app.include_router(authentication_route.router, prefix="/api", tags=["Authentication"])
 app.include_router(journal_routes.router, prefix="/api", tags=["Journal"])
 app.include_router(sentiment_routes.router, prefix="/api", tags=["Sentiment Analysis"])
